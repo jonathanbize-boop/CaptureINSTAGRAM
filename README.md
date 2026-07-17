@@ -7,7 +7,35 @@ Outil pour designers : télécharge les photos d'un compte **Instagram** ou **Fa
 - 🖥️ Interface web avec suivi en temps réel et export ZIP
 - ⌨️ CLI pour l'automatisation
 
-## Installation
+## 🌐 Mettre l'outil en ligne pour toute l'équipe
+
+L'objectif : héberger l'application **une seule fois**, puis chaque membre de l'équipe l'utilise depuis son navigateur via une simple URL — aucun Python, aucune installation côté utilisateur.
+
+### Option A — Render (gratuit, sans serveur à gérer)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/jonathanbize-boop/CaptureINSTAGRAM)
+
+1. Cliquez sur le bouton ci-dessus (ou créez un « Web Service » sur [render.com](https://render.com) pointant vers ce dépôt — le fichier `render.yaml` configure tout automatiquement).
+2. Renseignez la variable `ACCESS_CODE` avec un code de votre choix : c'est le code que votre équipe saisira pour utiliser l'outil (laissez vide pour un accès libre, déconseillé sur une URL publique).
+3. Render vous donne une URL du type `https://captureinstagram.onrender.com` → partagez-la à l'équipe, c'est tout.
+
+> Sur le plan gratuit, le service s'endort après 15 min d'inactivité : le premier chargement peut prendre ~30 s. Passez au plan payant (7 $/mois) pour l'éviter. Railway, Fly.io ou Koyeb fonctionnent de la même façon avec le `Dockerfile` fourni.
+
+### Option B — Serveur de l'entreprise / VPS (Docker)
+
+```bash
+git clone https://github.com/jonathanbize-boop/CaptureINSTAGRAM.git
+cd CaptureINSTAGRAM
+ACCESS_CODE=motdepasse-equipe docker compose up -d
+```
+
+L'outil est disponible sur `http://<ip-du-serveur>:8000`. Mettez un reverse proxy (Caddy, nginx) devant pour avoir HTTPS et un nom de domaine.
+
+### ⚠️ Important pour un hébergement cloud
+
+Instagram et Facebook bloquent quasi systématiquement les IP de datacenters en accès anonyme. En pratique, **chaque utilisateur devra coller ses cookies** (section « Cookies » de l'interface, voir plus bas) pour que les téléchargements aboutissent. Les cookies ne sont jamais conservés après le traitement.
+
+## Installation locale (développement)
 
 ```bash
 python -m venv .venv
@@ -56,6 +84,14 @@ Instagram et Facebook limitent fortement l'accès anonyme : pour de nombreux com
 3. Passez le fichier via `--cookies` (CLI) ou collez son contenu dans la section « Cookies » de l'interface web.
 
 Les cookies sont utilisés uniquement le temps du traitement puis supprimés du disque.
+
+## Variables d'environnement (déploiement)
+
+| Variable | Description |
+|---|---|
+| `ACCESS_CODE` | Si défini, l'interface et l'API exigent ce code (protège l'instance publique). |
+| `JOB_TTL` | Durée de rétention des ZIP générés en secondes (défaut : 7200 = 2 h). |
+| `PORT` | Port d'écoute (défaut : 8000 en Docker, 5000 en local). |
 
 ## Bonnes pratiques
 

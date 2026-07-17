@@ -1,0 +1,11 @@
+services:
+  captureinstagram:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Code d'accès demandé à l'équipe (laisser vide pour désactiver).
+      ACCESS_CODE: ${ACCESS_CODE:-}
+      # Durée de rétention des ZIP générés, en secondes.
+      JOB_TTL: ${JOB_TTL:-7200}
+    restart: unless-stopped

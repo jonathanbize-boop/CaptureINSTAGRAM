@@ -29,7 +29,7 @@
   }
   label { display: block; font-size: .85rem; color: var(--muted); margin: 1rem 0 .35rem; }
   label:first-child { margin-top: 0; }
-  input[type=text], input[type=number], textarea {
+  input[type=text], input[type=number], input[type=password], textarea {
     width: 100%; padding: .6rem .75rem; border-radius: 8px;
     border: 1px solid var(--border); background: #0d0f15; color: var(--text);
     font-size: .95rem;
@@ -73,6 +73,11 @@
   <p class="sub">Téléchargez les photos d'un compte Instagram ou Facebook et récupérez-les converties en WebP, prêtes pour le web.</p>
 
   <form class="card" id="form">
+    <div id="authblock" style="display:none">
+      <label for="accesscode">Code d'accès de l'équipe</label>
+      <input type="password" id="accesscode" placeholder="Code fourni par l'administrateur" autocomplete="current-password">
+    </div>
+
     <label for="source">Compte ou URL (Instagram / Facebook)</label>
     <input type="text" id="source" placeholder="@nomducompte ou https://www.instagram.com/…" required>
 
@@ -121,6 +126,16 @@ const statusEl = document.getElementById('status');
 const logEl = document.getElementById('log');
 const dlEl = document.getElementById('dl');
 const goBtn = document.getElementById('go');
+const codeInput = document.getElementById('accesscode');
+let authRequired = false;
+
+fetch('/api/config').then(r => r.json()).then(cfg => {
+  authRequired = cfg.auth_required;
+  if (authRequired) {
+    document.getElementById('authblock').style.display = 'block';
+    codeInput.value = localStorage.getItem('accessCode') || '';
+  }
+});
 
 const LABELS = {
   pending: 'En attente…',
@@ -149,9 +164,13 @@ form.addEventListener('submit', async (e) => {
   };
 
   try {
+    if (authRequired) localStorage.setItem('accessCode', codeInput.value);
     const res = await fetch('/api/jobs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Access-Code': codeInput.value,
+      },
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -175,7 +194,8 @@ async function poll(jobId) {
   if (job.status === 'done') {
     statusEl.className = 'status done';
     statusEl.textContent = `✅ Terminé — ${job.count} image(s) WebP`;
-    dlEl.href = `/api/jobs/${jobId}/download`;
+    dlEl.href = `/api/jobs/${jobId}/download` +
+      (authRequired ? `?code=${encodeURIComponent(codeInput.value)}` : '');
     dlEl.style.display = 'inline-block';
     goBtn.disabled = false;
   } else if (job.status === 'error') {

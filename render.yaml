@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: captureinstagram
+    runtime: docker
+    plan: free
+    envVars:
+      - key: ACCESS_CODE
+        sync: false # code d'accès de l'équipe, à saisir dans le dashboard Render
+      - key: JOB_TTL
+        value: "7200"
