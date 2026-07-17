@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaptureINSTAGRAM — Photos Instagram/Facebook → WebP</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #181b24; --border: #2a2f3d;
+    --text: #e8eaf0; --muted: #9aa1b2; --accent: #7c5cff; --accent-2: #ff5c8a;
+    --ok: #3ecf8e; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; justify-content: center; padding: 2.5rem 1rem;
+  }
+  main { width: 100%; max-width: 640px; }
+  h1 {
+    font-size: 1.6rem; margin-bottom: .3rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  p.sub { color: var(--muted); margin-bottom: 1.5rem; font-size: .95rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.4rem; margin-bottom: 1.2rem;
+  }
+  label { display: block; font-size: .85rem; color: var(--muted); margin: 1rem 0 .35rem; }
+  label:first-child { margin-top: 0; }
+  input[type=text], input[type=number], textarea {
+    width: 100%; padding: .6rem .75rem; border-radius: 8px;
+    border: 1px solid var(--border); background: #0d0f15; color: var(--text);
+    font-size: .95rem;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  textarea { font-family: monospace; font-size: .8rem; resize: vertical; }
+  .row { display: flex; gap: 1rem; }
+  .row > div { flex: 1; }
+  .range-wrap { display: flex; align-items: center; gap: .8rem; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .checkbox { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; }
+  .checkbox label { margin: 0; }
+  button {
+    width: 100%; margin-top: 1.4rem; padding: .8rem;
+    border: none; border-radius: 8px; cursor: pointer;
+    font-size: 1rem; font-weight: 600; color: white;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  details { margin-top: 1rem; }
+  summary { color: var(--muted); font-size: .85rem; cursor: pointer; }
+  #log {
+    font-family: monospace; font-size: .78rem; line-height: 1.5;
+    max-height: 240px; overflow-y: auto; white-space: pre-wrap;
+    color: var(--muted);
+  }
+  .status { font-weight: 600; margin-bottom: .6rem; }
+  .status.done { color: var(--ok); }
+  .status.error { color: var(--err); }
+  a.download {
+    display: inline-block; margin-top: .8rem; padding: .7rem 1.2rem;
+    background: var(--ok); color: #06281a; border-radius: 8px;
+    text-decoration: none; font-weight: 700;
+  }
+  #result { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CaptureINSTAGRAM</h1>
+  <p class="sub">Téléchargez les photos d'un compte Instagram ou Facebook et récupérez-les converties en WebP, prêtes pour le web.</p>
+
+  <form class="card" id="form">
+    <label for="source">Compte ou URL (Instagram / Facebook)</label>
+    <input type="text" id="source" placeholder="@nomducompte ou https://www.instagram.com/…" required>
+
+    <div class="row">
+      <div>
+        <label for="limit">Nombre max de photos</label>
+        <input type="number" id="limit" value="30" min="1" max="200">
+      </div>
+      <div>
+        <label for="maxsize">Taille max (px, optionnel)</label>
+        <input type="number" id="maxsize" placeholder="ex : 1920" min="100">
+      </div>
+    </div>
+
+    <label for="quality">Qualité WebP : <span id="qval">85</span></label>
+    <div class="range-wrap">
+      <input type="range" id="quality" min="1" max="100" value="85"
+             oninput="document.getElementById('qval').textContent = this.value">
+    </div>
+
+    <div class="checkbox">
+      <input type="checkbox" id="lossless">
+      <label for="lossless">Compression sans perte (fichiers plus lourds)</label>
+    </div>
+
+    <details>
+      <summary>Cookies (optionnel — requis pour les contenus nécessitant une connexion)</summary>
+      <label for="cookies">Collez ici votre fichier cookies.txt (format Netscape) exporté depuis votre navigateur. Ils sont supprimés dès la fin du traitement.</label>
+      <textarea id="cookies" rows="4" placeholder="# Netscape HTTP Cookie File…"></textarea>
+    </details>
+
+    <button type="submit" id="go">Télécharger &amp; convertir</button>
+  </form>
+
+  <div class="card" id="result">
+    <div class="status" id="status">En attente…</div>
+    <div id="log"></div>
+    <a class="download" id="dl" href="#" style="display:none">⬇ Télécharger le ZIP WebP</a>
+  </div>
+</main>
+
+<script>
+const form = document.getElementById('form');
+const resultCard = document.getElementById('result');
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+const dlEl = document.getElementById('dl');
+const goBtn = document.getElementById('go');
+
+const LABELS = {
+  pending: 'En attente…',
+  downloading: '📥 Téléchargement des photos…',
+  converting: '🔄 Conversion en WebP…',
+  done: '✅ Terminé !',
+  error: '❌ Erreur',
+};
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  goBtn.disabled = true;
+  resultCard.style.display = 'block';
+  dlEl.style.display = 'none';
+  statusEl.className = 'status';
+  statusEl.textContent = LABELS.pending;
+  logEl.textContent = '';
+
+  const payload = {
+    source: document.getElementById('source').value,
+    limit: document.getElementById('limit').value,
+    quality: document.getElementById('quality').value,
+    lossless: document.getElementById('lossless').checked,
+    max_size: document.getElementById('maxsize').value || null,
+    cookies: document.getElementById('cookies').value,
+  };
+
+  try {
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur serveur');
+    poll(data.job_id);
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = LABELS.error;
+    logEl.textContent = err.message;
+    goBtn.disabled = false;
+  }
+});
+
+async function poll(jobId) {
+  const res = await fetch(`/api/jobs/${jobId}`);
+  const job = await res.json();
+  statusEl.textContent = LABELS[job.status] || job.status;
+  logEl.textContent = job.log.join('\n');
+  logEl.scrollTop = logEl.scrollHeight;
+
+  if (job.status === 'done') {
+    statusEl.className = 'status done';
+    statusEl.textContent = `✅ Terminé — ${job.count} image(s) WebP`;
+    dlEl.href = `/api/jobs/${jobId}/download`;
+    dlEl.style.display = 'inline-block';
+    goBtn.disabled = false;
+  } else if (job.status === 'error') {
+    statusEl.className = 'status error';
+    goBtn.disabled = false;
+  } else {
+    setTimeout(() => poll(jobId), 1200);
+  }
+}
+</script>
+</body>
+</html>

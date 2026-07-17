@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+webp/
+export/
+cookies.txt
+*.zip
