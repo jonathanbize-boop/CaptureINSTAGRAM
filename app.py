@@ -6,6 +6,7 @@ Lancement : python app.py  →  http://localhost:5000
 import os
 import secrets
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -19,7 +20,18 @@ from core.converter import convert_directory, zip_files
 from core.downloader import (DownloadError, detect_platform, download_photos,
                              normalize_source)
 
-app = Flask(__name__)
+
+def _template_folder() -> str:
+    """Dossier des templates, y compris une fois empaqueté par PyInstaller.
+
+    En mode gelé (« frozen »), PyInstaller extrait les ressources dans
+    `sys._MEIPASS` ; Flask doit y chercher `templates/`.
+    """
+    base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
+    return str(base / "templates")
+
+
+app = Flask(__name__, template_folder=_template_folder())
 
 WORK_ROOT = Path(tempfile.gettempdir()) / "captureinstagram-jobs"
 WORK_ROOT.mkdir(parents=True, exist_ok=True)
