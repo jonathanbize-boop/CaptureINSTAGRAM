@@ -115,7 +115,7 @@
   <div class="card" id="result">
     <div class="status" id="status">En attente…</div>
     <div id="log"></div>
-    <a class="download" id="dl" href="#" style="display:none">⬇ Télécharger le ZIP WebP</a>
+    <a class="download" id="dl" href="#" download="photos-webp.zip" style="display:none">⬇ Télécharger le ZIP WebP</a>
   </div>
 </main>
 
@@ -134,6 +134,26 @@ fetch('/api/config').then(r => r.json()).then(cfg => {
   if (authRequired) {
     document.getElementById('authblock').style.display = 'block';
     codeInput.value = localStorage.getItem('accessCode') || '';
+  }
+});
+
+// En mode application bureau (pywebview), la fenêtre native n'a pas de
+// gestionnaire de téléchargement : un lien href classique ne déclenche rien.
+// On passe alors par une boîte de dialogue « Enregistrer sous » native.
+// Dans un navigateur, window.pywebview est absent et le lien href fonctionne.
+dlEl.addEventListener('click', async (e) => {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.save_zip)) {
+    return;  // navigateur : on laisse le téléchargement natif du lien.
+  }
+  e.preventDefault();
+  const label = dlEl.textContent;
+  dlEl.textContent = '⏳ Enregistrement…';
+  try {
+    const saved = await window.pywebview.api.save_zip(dlEl.dataset.jobId);
+    dlEl.textContent = saved ? '✅ ZIP enregistré' : label;
+  } catch (err) {
+    dlEl.textContent = label;
+    statusEl.textContent = "❌ Échec de l'enregistrement : " + err;
   }
 });
 
@@ -196,6 +216,7 @@ async function poll(jobId) {
     statusEl.textContent = `✅ Terminé — ${job.count} image(s) WebP`;
     dlEl.href = `/api/jobs/${jobId}/download` +
       (authRequired ? `?code=${encodeURIComponent(codeInput.value)}` : '');
+    dlEl.dataset.jobId = jobId;
     dlEl.style.display = 'inline-block';
     goBtn.disabled = false;
   } else if (job.status === 'error') {
