@@ -7,6 +7,46 @@ Outil pour designers : télécharge les photos d'un compte **Instagram** ou **Fa
 - 🖥️ Interface web avec suivi en temps réel et export ZIP
 - ⌨️ CLI pour l'automatisation
 
+## 🖥️ Application bureau (Windows & macOS) — recommandé
+
+> **Pourquoi ?** Instagram bloque quasi systématiquement les IP de datacenters (erreurs `403 Forbidden` puis `NotFoundError`). Un hébergement cloud (Render, VPS…) échoue donc la plupart du temps. L'**application bureau** tourne en local sur votre machine et utilise votre **connexion internet résidentielle**, beaucoup moins bloquée. Aucune installation de Python côté utilisateur : un double-clic suffit.
+
+L'application enveloppe exactement le même moteur (Flask + gallery-dl + Pillow) dans une fenêtre native (via [pywebview](https://pywebview.flowrl.com/)), empaquetée avec [PyInstaller](https://pyinstaller.org/).
+
+### Tester en développement (sans empaqueter)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows : .venv\Scripts\activate
+pip install -r requirements-desktop.txt
+python desktop.py                # ouvre une fenêtre native
+```
+
+### Construire l'exécutable
+
+PyInstaller **ne fait pas de cross-compilation** : construisez le `.exe` sur une machine **Windows** et le `.app` sur un **Mac**.
+
+- **Windows** : double-cliquez sur `build_windows.bat` (ou lancez-le dans un terminal). L'exécutable est produit dans `dist\CaptureINSTAGRAM\`.
+- **macOS** : `./build_macos.sh`. L'application est produite dans `dist/CaptureINSTAGRAM.app`.
+
+Le fichier `captureinstagram.spec` collecte automatiquement les templates Flask et les extracteurs de gallery-dl (chargés dynamiquement). Testez toujours l'app **gelée** avec un vrai téléchargement avant de la distribuer.
+
+### Distribution
+
+- **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage perso : clic droit → **Ouvrir**. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
+- **Windows** : SmartScreen affiche un avertissement pour un `.exe` non signé. Usage interne : **Informations complémentaires** → **Exécuter quand même**. Un certificat de signature de code (payant) supprime l'avertissement.
+- Partage interne simple : zippez le dossier `dist/` et documentez la procédure de contournement.
+
+### Cookies (souvent nécessaires même en local)
+
+Certains comptes ou volumes déclenchent la demande de connexion d'Instagram. L'interface possède déjà un champ **Cookies** :
+
+1. Installez l'extension **« Get cookies.txt LOCALLY »** (Chrome/Firefox).
+2. Connectez-vous à instagram.com, exportez les cookies au **format Netscape**.
+3. Collez leur contenu dans la section « Cookies » de l'application.
+
+Les cookies sont supprimés du disque après chaque job (déjà géré par le code). Sans cookies, l'app échoue **rapidement** avec un message clair invitant à les ajouter.
+
 ## 🌐 Mettre l'outil en ligne pour toute l'équipe
 
 L'objectif : héberger l'application **une seule fois**, puis chaque membre de l'équipe l'utilise depuis son navigateur via une simple URL — aucun Python, aucune installation côté utilisateur.

@@ -6,3 +6,8 @@ webp/
 export/
 cookies.txt
 *.zip
+
+# Artefacts de build PyInstaller (application bureau)
+build/
+dist/
+*.spec.bak
