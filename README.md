@@ -31,9 +31,18 @@ PyInstaller **ne fait pas de cross-compilation** : construisez le `.exe` sur une
 
 Le fichier `captureinstagram.spec` collecte automatiquement les templates Flask et les extracteurs de gallery-dl (chargés dynamiquement). Testez toujours l'app **gelée** avec un vrai téléchargement avant de la distribuer.
 
+#### Construire le `.app` macOS sans posséder de Mac (GitHub Actions)
+
+PyInstaller ne peut pas produire un `.app` depuis Windows/Linux, mais un Mac distant peut le faire à votre place. Le workflow `.github/workflows/build-macos.yml` construit le bundle sur un runner macOS de GitHub :
+
+1. Onglet **Actions** du dépôt → workflow **« Construire l'application macOS »** → bouton **Run workflow**.
+2. À la fin du run (~5–10 min), téléchargez l'artefact **`CaptureINSTAGRAM-macos`** en bas de la page : il contient `CaptureINSTAGRAM.app` (zippé).
+
+Le build est un binaire Intel (x86_64) qui fonctionne aussi sur les Mac Apple Silicon via Rosetta 2.
+
 ### Distribution
 
-- **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage perso : clic droit → **Ouvrir**. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
+- **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage interne : **clic droit sur l'app → Ouvrir**, puis confirmez. Si macOS affiche « l'application est endommagée », levez la mise en quarantaine avec `xattr -cr /chemin/vers/CaptureINSTAGRAM.app`. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
 - **Windows** : SmartScreen affiche un avertissement pour un `.exe` non signé. Usage interne : **Informations complémentaires** → **Exécuter quand même**. Un certificat de signature de code (payant) supprime l'avertissement.
 - Partage interne simple : zippez le dossier `dist/` et documentez la procédure de contournement.
 

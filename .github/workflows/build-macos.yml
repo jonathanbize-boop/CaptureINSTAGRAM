@@ -1,0 +1,53 @@
+name: Construire l'application macOS
+
+# Construit le bundle CaptureINSTAGRAM.app sur un Mac distant fourni par GitHub
+# (PyInstaller ne peut pas produire un .app depuis Windows ou Linux).
+#
+# Déclenchement :
+#   - manuellement depuis l'onglet « Actions » du dépôt (bouton « Run workflow ») ;
+#   - automatiquement en poussant un tag de version (ex. v1.0.0).
+#
+# Le résultat (CaptureINSTAGRAM.app zippé) est téléchargeable en bas de la page
+# du run, dans la section « Artifacts ».
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-macos:
+    # macos-13 = runner Intel (x86_64). L'app produite fonctionne à la fois sur
+    # les Mac Intel ET sur les Mac Apple Silicon (via Rosetta 2), ce qui couvre
+    # tous les collègues quel que soit leur modèle.
+    runs-on: macos-13
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-desktop.txt
+
+      - name: Construire le .app
+        run: pyinstaller captureinstagram.spec --noconfirm
+
+      - name: Compresser le bundle (préserve permissions et liens symboliques)
+        run: |
+          cd dist
+          zip -r -y CaptureINSTAGRAM-macos.zip CaptureINSTAGRAM.app
+
+      - name: Publier l'application en artefact téléchargeable
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaptureINSTAGRAM-macos
+          path: dist/CaptureINSTAGRAM-macos.zip
+          if-no-files-found: error
