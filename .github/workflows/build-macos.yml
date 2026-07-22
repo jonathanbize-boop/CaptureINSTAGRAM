@@ -18,10 +18,12 @@ on:
 
 jobs:
   build-macos:
-    # macos-13 = runner Intel (x86_64). L'app produite fonctionne à la fois sur
-    # les Mac Intel ET sur les Mac Apple Silicon (via Rosetta 2), ce qui couvre
-    # tous les collègues quel que soit leur modèle.
-    runs-on: macos-13
+    # macos-latest = runner Apple Silicon (arm64), rapide et disponible.
+    # L'app produite cible les Mac Apple Silicon (puces M1/M2/M3/M4), qui
+    # couvrent la quasi-totalité du parc actuel. (Les runners Intel macos-13
+    # sont en cours de retrait par GitHub et ont de très longues files
+    # d'attente ; pour aussi couvrir de vieux Mac Intel, repasser sur macos-13.)
+    runs-on: macos-latest
 
     steps:
       - name: Récupérer le code
