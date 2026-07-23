@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 import urllib.request
+import webbrowser
 from pathlib import Path
 
 import webview  # pywebview
@@ -133,16 +134,47 @@ def main() -> None:
     threading.Thread(target=_serve, daemon=True).start()
     _wait_until_up(port)
 
+    url = f"http://127.0.0.1:{port}/"
     api = Api()
     api.port = port
-    webview.create_window(
-        "CaptureINSTAGRAM",
-        f"http://127.0.0.1:{port}/",
-        js_api=api,
-        width=1100,
-        height=820,
+    try:
+        webview.create_window(
+            "CaptureINSTAGRAM", url, js_api=api, width=1100, height=820,
+        )
+        webview.start()
+    except Exception as exc:  # noqa: BLE001 — l'app doit rester utilisable
+        _fallback_to_browser(url, exc)
+
+
+def _fallback_to_browser(url: str, exc: Exception) -> None:
+    """Ouvre l'interface dans le navigateur quand la fenêtre native échoue.
+
+    Cas réel rencontré : les fichiers extraits d'une archive téléchargée
+    héritent du « Mark of the Web », et .NET refuse alors de charger
+    `Python.Runtime.dll`, dont dépend la fenêtre native. Plutôt que de
+    planter sur une trace illisible, on sert l'interface dans le navigateur.
+    """
+    message = (
+        "La fenêtre de l'application n'a pas pu s'ouvrir :\n"
+        f"{type(exc).__name__} : {exc}\n\n"
+        "CaptureINSTAGRAM continue de fonctionner et vient de s'ouvrir dans "
+        "votre navigateur.\n\n"
+        "Cause probable : les fichiers extraits d'une archive téléchargée sont "
+        "marqués « provenant d'Internet » par Windows. Pour rétablir la "
+        "fenêtre native, lancez « Debloquer-et-lancer.bat », ou faites un clic "
+        "droit sur l'archive ZIP → Propriétés → Débloquer avant de l'extraire.\n\n"
+        "Fermez cette boîte de dialogue pour quitter l'application."
     )
-    webview.start()
+    webbrowser.open(url)
+    if sys.platform == "win32":
+        # Boîte modale : tant qu'elle est ouverte, le serveur local tourne.
+        # Sans elle, l'app se terminerait aussitôt et le navigateur afficherait
+        # une page morte.
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, message, "CaptureINSTAGRAM", 0x40)
+    else:
+        print(message)
+        input("Appuyez sur Entrée pour quitter…")
 
 
 if __name__ == "__main__":
