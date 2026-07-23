@@ -201,7 +201,10 @@ dlEl.addEventListener('click', async (e) => {
   dlEl.textContent = '⏳ Enregistrement…';
   try {
     const saved = await window.pywebview.api.save_zip(dlEl.dataset.jobId);
-    dlEl.textContent = saved ? '✅ ZIP enregistré' : label;
+    // Le nom final peut différer de la saisie : l'app force l'extension .zip
+    // et évite d'écraser un fichier existant. On affiche donc le vrai nom.
+    const name = saved ? saved.split(/[\\/]/).pop() : '';
+    dlEl.textContent = saved ? `✅ Enregistré : ${name}` : label;
   } catch (err) {
     dlEl.textContent = label;
     statusEl.textContent = "❌ Échec de l'enregistrement : " + err;

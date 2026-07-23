@@ -28,6 +28,18 @@ def _resource_dir() -> Path:
     return Path(__file__).parent
 
 
+def _unique_path(path: Path) -> Path:
+    """Retourne `path`, suffixé d'un numéro s'il existe déjà."""
+    if not path.exists():
+        return path
+    counter = 1
+    while True:
+        candidate = path.with_name(f"{path.stem}-{counter}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
 class Api:
     """Pont Python ↔ JavaScript exposé à la fenêtre pywebview.
 
@@ -50,11 +62,22 @@ class Api:
             return None
         result = windows[0].create_file_dialog(
             webview.SAVE_DIALOG, save_filename="photos-webp.zip",
+            file_types=("Archive ZIP (*.zip)",),
         )
         if not result:
             return None  # dialogue annulé
         # Selon la version de pywebview : une chaîne ou une liste de chemins.
         dest = result if isinstance(result, str) else result[0]
+        # Si l'utilisateur saisit un nom sans « .zip », la boîte de dialogue ne
+        # complète pas toujours l'extension selon le backend : on obtient une
+        # archive valide que Windows ne sait plus ouvrir. On la remet nous-mêmes.
+        if not dest.lower().endswith(".zip"):
+            # Le nom final n'est plus celui validé dans le dialogue : ce dernier
+            # n'a donc pas pu demander confirmation d'écrasement. On ne touche
+            # pas à un fichier existant.
+            # Concaténation plutôt que with_suffix() : « archive.v2 » doit
+            # devenir « archive.v2.zip », pas « archive.zip ».
+            dest = str(_unique_path(Path(dest + ".zip")))
 
         url = f"http://127.0.0.1:{self.port}/api/jobs/{job_id}/download"
         # Opener sans proxy : le serveur tourne en local sur 127.0.0.1.
