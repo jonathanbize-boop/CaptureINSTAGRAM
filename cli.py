@@ -3,6 +3,7 @@
 Exemples :
     python cli.py @natgeo --limit 20 --quality 80 --out ./export
     python cli.py https://www.facebook.com/pagepublique --max-size 1920
+    python cli.py mapage --platform facebook --facebook-albums
 """
 
 import argparse
@@ -12,14 +13,22 @@ import tempfile
 from pathlib import Path
 
 from core.converter import convert_directory
-from core.downloader import DownloadError, download_photos
+from core.downloader import AUTO, PLATFORMS, DownloadError, download_photos
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Télécharge les photos Instagram/Facebook et les convertit en WebP."
     )
-    parser.add_argument("source", help="URL Instagram/Facebook ou nom d'utilisateur Instagram")
+    parser.add_argument(
+        "source",
+        help="URL Instagram/Facebook, nom d'utilisateur, ou nom préfixé (« fb:mapage »)",
+    )
+    parser.add_argument("--platform", choices=PLATFORMS, default=AUTO,
+                        help="Plateforme visée quand la source est un simple nom "
+                             "(défaut : auto = Instagram)")
+    parser.add_argument("--facebook-albums", action="store_true",
+                        help="Sur une page Facebook, parcourt aussi les albums photos")
     parser.add_argument("--limit", type=int, default=50, help="Nombre max de photos (défaut : 50)")
     parser.add_argument("--quality", type=int, default=85, help="Qualité WebP 1-100 (défaut : 85)")
     parser.add_argument("--lossless", action="store_true", help="Compression sans perte")
@@ -37,7 +46,9 @@ def main() -> int:
         else Path(tempfile.mkdtemp(prefix="captureinsta-"))
     try:
         download_photos(args.source, raw_dir, limit=args.limit,
-                        cookies_file=args.cookies, on_progress=print)
+                        cookies_file=args.cookies, on_progress=print,
+                        platform=args.platform,
+                        facebook_albums=args.facebook_albums)
         converted = convert_directory(
             raw_dir, args.out, quality=args.quality,
             lossless=args.lossless, max_size=args.max_size, on_progress=print,

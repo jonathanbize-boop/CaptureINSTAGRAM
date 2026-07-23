@@ -29,12 +29,13 @@
   }
   label { display: block; font-size: .85rem; color: var(--muted); margin: 1rem 0 .35rem; }
   label:first-child { margin-top: 0; }
-  input[type=text], input[type=number], input[type=password], textarea {
+  input[type=text], input[type=number], input[type=password], textarea, select {
     width: 100%; padding: .6rem .75rem; border-radius: 8px;
     border: 1px solid var(--border); background: #0d0f15; color: var(--text);
     font-size: .95rem;
   }
-  input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  p.hint { color: var(--muted); font-size: .78rem; margin-top: .4rem; line-height: 1.45; }
   textarea { font-family: monospace; font-size: .8rem; resize: vertical; }
   .row { display: flex; gap: 1rem; }
   .row > div { flex: 1; }
@@ -78,8 +79,24 @@
       <input type="password" id="accesscode" placeholder="Code fourni par l'administrateur" autocomplete="current-password">
     </div>
 
-    <label for="source">Compte ou URL (Instagram / Facebook)</label>
+    <label for="platform">Plateforme</label>
+    <select id="platform">
+      <option value="auto">Détection automatique (nom seul = Instagram)</option>
+      <option value="instagram">Instagram</option>
+      <option value="facebook">Facebook</option>
+    </select>
+
+    <label for="source">Compte, page ou URL</label>
     <input type="text" id="source" placeholder="@nomducompte ou https://www.instagram.com/…" required>
+    <p class="hint" id="sourcehint">
+      URL Instagram ou Facebook (profil, photo, album, publication), ou nom
+      d'utilisateur. Préfixez par « fb: » pour forcer une page Facebook.
+    </p>
+
+    <div class="checkbox" id="fbalbumsblock" style="display:none">
+      <input type="checkbox" id="fbalbums">
+      <label for="fbalbums">Parcourir aussi les albums photos de la page Facebook</label>
+    </div>
 
     <div class="row">
       <div>
@@ -127,7 +144,41 @@ const logEl = document.getElementById('log');
 const dlEl = document.getElementById('dl');
 const goBtn = document.getElementById('go');
 const codeInput = document.getElementById('accesscode');
+const platformSel = document.getElementById('platform');
+const sourceInput = document.getElementById('source');
+const sourceHint = document.getElementById('sourcehint');
+const fbAlbumsBlock = document.getElementById('fbalbumsblock');
 let authRequired = false;
+
+// Le choix de plateforme n'affecte que les saisies « nom seul » : une URL
+// complète est toujours reconnue d'après son domaine, côté serveur.
+const SOURCE_HELP = {
+  auto: {
+    placeholder: '@nomducompte ou https://www.instagram.com/…',
+    hint: "URL Instagram ou Facebook (profil, photo, album, publication), ou nom " +
+          "d'utilisateur. Préfixez par « fb: » pour forcer une page Facebook.",
+  },
+  instagram: {
+    placeholder: '@nomducompte ou https://www.instagram.com/…',
+    hint: "Nom d'utilisateur Instagram ou URL d'un profil / d'une publication. " +
+          "Les comptes privés nécessitent vos cookies.",
+  },
+  facebook: {
+    placeholder: 'mapage ou https://www.facebook.com/mapage/photos',
+    hint: "Nom de la page, identifiant numérique de profil, ou URL Facebook " +
+          "(page, photo, album, publication, groupe). Tout ce qui n'est pas " +
+          "public exige vos cookies de connexion.",
+  },
+};
+
+function syncPlatform() {
+  const help = SOURCE_HELP[platformSel.value];
+  sourceInput.placeholder = help.placeholder;
+  sourceHint.textContent = help.hint;
+  fbAlbumsBlock.style.display = platformSel.value === 'instagram' ? 'none' : 'flex';
+}
+platformSel.addEventListener('change', syncPlatform);
+syncPlatform();
 
 fetch('/api/config').then(r => r.json()).then(cfg => {
   authRequired = cfg.auth_required;
@@ -175,7 +226,9 @@ form.addEventListener('submit', async (e) => {
   logEl.textContent = '';
 
   const payload = {
-    source: document.getElementById('source').value,
+    source: sourceInput.value,
+    platform: platformSel.value,
+    facebook_albums: document.getElementById('fbalbums').checked,
     limit: document.getElementById('limit').value,
     quality: document.getElementById('quality').value,
     lossless: document.getElementById('lossless').checked,
