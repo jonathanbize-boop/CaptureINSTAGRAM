@@ -31,18 +31,9 @@ PyInstaller **ne fait pas de cross-compilation** : construisez le `.exe` sur une
 
 Le fichier `captureinstagram.spec` collecte automatiquement les templates Flask et les extracteurs de gallery-dl (chargés dynamiquement). Testez toujours l'app **gelée** avec un vrai téléchargement avant de la distribuer.
 
-#### Construire le `.app` macOS sans posséder de Mac (GitHub Actions)
-
-PyInstaller ne peut pas produire un `.app` depuis Windows/Linux, mais un Mac distant peut le faire à votre place. Le workflow `.github/workflows/build-macos.yml` construit le bundle sur un runner macOS de GitHub :
-
-1. Onglet **Actions** du dépôt → workflow **« Construire l'application macOS »** → bouton **Run workflow**.
-2. À la fin du run (~5–10 min), téléchargez l'artefact **`CaptureINSTAGRAM-macos`** en bas de la page : il contient `CaptureINSTAGRAM.app` (zippé).
-
-Le build est un binaire Intel (x86_64) qui fonctionne aussi sur les Mac Apple Silicon via Rosetta 2.
-
 ### Distribution
 
-- **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage interne : **clic droit sur l'app → Ouvrir**, puis confirmez. Si macOS affiche « l'application est endommagée », levez la mise en quarantaine avec `xattr -cr /chemin/vers/CaptureINSTAGRAM.app`. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
+- **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage perso : clic droit → **Ouvrir**. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
 - **Windows** : SmartScreen affiche un avertissement pour un `.exe` non signé. Usage interne : **Informations complémentaires** → **Exécuter quand même**. Un certificat de signature de code (payant) supprime l'avertissement.
 - Partage interne simple : zippez le dossier `dist/` et documentez la procédure de contournement.
 
@@ -102,20 +93,43 @@ python app.py
 
 Ouvrez ensuite <http://localhost:5000> :
 
-1. Collez l'URL du compte (`https://www.instagram.com/nomducompte/`, `https://www.facebook.com/nomdelapage`) ou tapez simplement `@nomducompte` (Instagram).
-2. Réglez le nombre de photos, la qualité WebP (85 par défaut) et éventuellement une taille max en pixels.
-3. Lancez, suivez la progression, puis téléchargez le ZIP contenant les WebP.
+1. Choisissez la plateforme (la détection automatique suffit dès que vous collez une URL).
+2. Collez l'URL du compte (`https://www.instagram.com/nomducompte/`, `https://www.facebook.com/nomdelapage`) ou tapez simplement `@nomducompte` (Instagram) / `fb:nomdelapage` (Facebook).
+3. Réglez le nombre de photos, la qualité WebP (85 par défaut) et éventuellement une taille max en pixels.
+4. Lancez, suivez la progression, puis téléchargez le ZIP contenant les WebP.
+
+## 📘 Sources Facebook acceptées
+
+| Ce que vous collez | Résultat |
+|---|---|
+| `https://www.facebook.com/mapage` | Onglet « Photos » de la page |
+| `https://www.facebook.com/mapage/photos` | Idem, explicitement |
+| `https://www.facebook.com/media/set/?set=a.123…` | Un album précis |
+| `https://www.facebook.com/mapage/posts/…` | Les photos d'une publication |
+| `https://www.facebook.com/photo/?fbid=…` | Une photo et son album |
+| `https://www.facebook.com/groups/…/posts/…` | Les photos d'un post de groupe |
+| `https://www.facebook.com/profile.php?id=1000…` | Profil sans nom personnalisé |
+| `fb:mapage`, `facebook:Ma-Page-123` | Page à partir de son nom seul |
+
+Les raccourcis `fb.com` / `fb.me` sont réécrits automatiquement. Les liens `fb.watch` sont refusés : ils pointent vers des vidéos, alors que l'outil ne récupère que des photos.
+
+**Albums.** Sur une URL de page, seul l'onglet « Photos » est parcouru par défaut. Beaucoup de pages rangent leurs images dans des albums : cochez **« Parcourir aussi les albums photos »** (ou `--facebook-albums` en CLI) pour les inclure. La limite de photos reste globale, tous albums confondus.
+
+**Cookies.** Les pages publiques fonctionnent souvent sans connexion. Les profils personnels, les groupes et les contenus restreints exigent vos cookies (voir plus bas). Les vidéos sont ignorées sans même être ouvertes, et une courte pause est appliquée entre les requêtes Facebook pour éviter les blocages — un lot de photos Facebook est donc plus lent qu'Instagram.
 
 ## Ligne de commande
 
 ```bash
 python cli.py @natgeo --limit 20 --quality 80 --out ./export
 python cli.py https://www.facebook.com/pagepublique --max-size 1920
+python cli.py mapage --platform facebook --facebook-albums
 python cli.py @moncompte --cookies cookies.txt --keep-originals
 ```
 
 | Option | Description |
 |---|---|
+| `--platform {auto,instagram,facebook}` | Plateforme visée quand la source est un simple nom (défaut : `auto` = Instagram). Sans effet sur une URL. |
+| `--facebook-albums` | Sur une page Facebook, parcourt aussi les albums photos |
 | `--limit N` | Nombre max de photos (défaut : 50) |
 | `--quality N` | Qualité WebP 1-100 (défaut : 85) |
 | `--lossless` | Compression sans perte |

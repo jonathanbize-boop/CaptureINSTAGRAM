@@ -17,8 +17,8 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request, send_file
 
 from core.converter import convert_directory, zip_files
-from core.downloader import (DownloadError, detect_platform, download_photos,
-                             normalize_source)
+from core.downloader import (AUTO, PLATFORMS, DownloadError, detect_platform,
+                             download_photos, normalize_source)
 
 
 def _template_folder() -> str:
@@ -81,7 +81,8 @@ def _set(job_id: str, **fields) -> None:
 
 
 def _run_job(job_id: str, source: str, limit: int, quality: int,
-             lossless: bool, max_size: int | None, cookies_text: str) -> None:
+             lossless: bool, max_size: int | None, cookies_text: str,
+             platform: str, facebook_albums: bool) -> None:
     workdir = WORK_ROOT / job_id
     raw_dir = workdir / "originaux"
     webp_dir = workdir / "webp"
@@ -96,6 +97,7 @@ def _run_job(job_id: str, source: str, limit: int, quality: int,
         download_photos(
             source, raw_dir, limit=limit, cookies_file=cookies_file,
             on_progress=lambda msg: _log(job_id, msg),
+            platform=platform, facebook_albums=facebook_albums,
         )
 
         _set(job_id, status="converting")
@@ -140,8 +142,12 @@ def create_job():
     _purge_old_jobs()
     data = request.get_json(force=True)
     source = (data.get("source") or "").strip()
+    platform = (data.get("platform") or AUTO).strip().lower()
+    if platform not in PLATFORMS:
+        return jsonify({"error": f"Plateforme inconnue : {platform}."}), 400
     try:
-        detect_platform(normalize_source(source))  # validation avant de créer le job
+        # Validation avant de créer le job.
+        detect_platform(normalize_source(source, platform))
     except DownloadError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -150,6 +156,7 @@ def create_job():
     lossless = bool(data.get("lossless"))
     max_size = int(data["max_size"]) if data.get("max_size") else None
     cookies_text = data.get("cookies") or ""
+    facebook_albums = bool(data.get("facebook_albums"))
 
     job_id = uuid.uuid4().hex
     with _jobs_lock:
@@ -157,7 +164,8 @@ def create_job():
                          "zip_path": None, "error": None, "finished_at": 0}
     threading.Thread(
         target=_run_job,
-        args=(job_id, source, limit, quality, lossless, max_size, cookies_text),
+        args=(job_id, source, limit, quality, lossless, max_size, cookies_text,
+              platform, facebook_albums),
         daemon=True,
     ).start()
     return jsonify({"job_id": job_id}), 202
