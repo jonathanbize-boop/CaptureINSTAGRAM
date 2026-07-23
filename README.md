@@ -26,10 +26,23 @@ python desktop.py                # ouvre une fenêtre native
 
 PyInstaller **ne fait pas de cross-compilation** : construisez le `.exe` sur une machine **Windows** et le `.app` sur un **Mac**.
 
-- **Windows** : double-cliquez sur `build_windows.bat` (ou lancez-le dans un terminal). L'exécutable est produit dans `dist\CaptureINSTAGRAM\`.
+- **Windows** : double-cliquez sur `build_windows.bat` (ou lancez-le dans un terminal). L'application est produite dans `dist\CaptureINSTAGRAM\` — lancez `CaptureINSTAGRAM.exe` **depuis ce dossier**, qui contient aussi ses dépendances. Pour la distribuer, zippez le dossier entier.
 - **macOS** : `./build_macos.sh`. L'application est produite dans `dist/CaptureINSTAGRAM.app`.
 
 Le fichier `captureinstagram.spec` collecte automatiquement les templates Flask et les extracteurs de gallery-dl (chargés dynamiquement). Testez toujours l'app **gelée** avec un vrai téléchargement avant de la distribuer.
+
+### ⚠️ Antivirus : pourquoi le build est en mode dossier
+
+Windows Defender signale fréquemment les applications PyInstaller en **faux positif**, typiquement `Trojan:Win32/Sabsik.TE.A!ml` — le suffixe `!ml` indique un verdict heuristique, pas une signature de malware connu.
+
+La cause principale est le mode « fichier unique » (*onefile*) : l'exécutable se décompresse dans `%TEMP%` avant de s'exécuter, exactement le comportement que cherche l'heuristique. Le projet est donc construit en **mode dossier** (*onedir*), et **sans UPX**, la compression de binaires étant un autre signal fort pour les antivirus.
+
+Cela réduit nettement les faux positifs sans les éliminer avec certitude. Si un blocage persiste sur un binaire que vous avez vous-même construit ou publié :
+
+1. Signalez-le comme faux positif à Microsoft : <https://www.microsoft.com/en-us/wdsi/filesubmission> (gratuit, correction typique en 24-72 h, valable pour tous vos utilisateurs). L'empreinte changeant à chaque build, l'opération est à refaire à chaque version publiée.
+2. À terme, seule la **signature de code** (certificat OV ou EV, payant) règle durablement le problème, et supprime au passage l'avertissement SmartScreen.
+
+Un détail utile au diagnostic : Defender est bien plus strict sur les fichiers **téléchargés depuis internet** que sur ceux construits localement. Un binaire qui passe sur votre machine peut être bloqué chez celui qui le télécharge.
 
 ### Distribution
 
@@ -46,6 +59,23 @@ Certains comptes ou volumes déclenchent la demande de connexion d'Instagram. L'
 3. Collez leur contenu dans la section « Cookies » de l'application.
 
 Les cookies sont supprimés du disque après chaque job (déjà géré par le code). Sans cookies, l'app échoue **rapidement** avec un message clair invitant à les ajouter.
+
+> Instagram tolère un certain volume de requêtes anonymes par adresse IP, puis renvoie `401` et exige une session. Le seuil est atteint sans prévenir : un compte qui fonctionnait hier sans cookies peut les réclamer aujourd'hui. Facebook est plus permissif sur les pages publiques.
+
+#### Se souvenir des cookies (application bureau uniquement)
+
+Recoller ses cookies à chaque lancement est fastidieux. L'app bureau propose donc une case **« Se souvenir de mes cookies sur cet ordinateur »**, sous la section Cookies.
+
+**Ce que cela implique.** Un cookie de session vaut un mot de passe : qui l'obtient accède à votre compte sans avoir à s'authentifier. Le stockage est donc limité au strict nécessaire :
+
+| | |
+|---|---|
+| Windows | Chiffré par **DPAPI**, lié à votre compte Windows. Le fichier copié sur une autre machine, ou lu par un autre compte, est inexploitable. |
+| macOS / Linux | Fichier en clair, restreint au propriétaire (mode 600) — pas d'équivalent DPAPI sans dépendance supplémentaire. |
+| Emplacement | `%LOCALAPPDATA%\CaptureINSTAGRAM\cookies.bin` (Windows), `~/Library/Application Support/CaptureINSTAGRAM/` (macOS) |
+| Effacement | Bouton **« Oublier les cookies enregistrés »**, ou simplement décocher la case avant de lancer un téléchargement. |
+
+L'option n'existe **pas** dans la version web : sur une instance partagée, conserver les cookies d'un visiteur les exposerait aux autres. Le comportement du serveur est inchangé — les cookies transmis à un job sont toujours effacés dès qu'il se termine.
 
 ## 🌐 Mettre l'outil en ligne pour toute l'équipe
 

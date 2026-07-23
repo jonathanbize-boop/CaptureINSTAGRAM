@@ -19,6 +19,7 @@ from pathlib import Path
 import webview  # pywebview
 
 from app import app
+from core import cookie_store
 
 
 def _resource_dir() -> Path:
@@ -51,6 +52,24 @@ class Api:
 
     def __init__(self) -> None:
         self.port = 0
+
+    # --- Mémorisation optionnelle des cookies -----------------------------
+    # Réservé à l'app bureau : ces méthodes n'existent pas côté navigateur,
+    # où le serveur peut être partagé entre plusieurs personnes.
+
+    def cookies_status(self) -> dict:
+        return cookie_store.status()
+
+    def cookies_load(self) -> str:
+        return cookie_store.load()
+
+    def cookies_save(self, cookies_text: str) -> dict:
+        cookie_store.save(cookies_text or "")
+        return cookie_store.status()
+
+    def cookies_forget(self) -> dict:
+        cookie_store.clear()
+        return cookie_store.status()
 
     def save_zip(self, job_id: str):
         """Enregistre le ZIP du job à l'emplacement choisi par l'utilisateur.

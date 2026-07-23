@@ -50,6 +50,12 @@
     background: linear-gradient(90deg, var(--accent), var(--accent-2));
   }
   button:disabled { opacity: .5; cursor: not-allowed; }
+  button.secondary {
+    width: auto; margin-top: .6rem; padding: .45rem .9rem;
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); font-size: .8rem; font-weight: 500;
+  }
+  button.secondary:hover { color: var(--text); border-color: var(--muted); }
   details { margin-top: 1rem; }
   summary { color: var(--muted); font-size: .85rem; cursor: pointer; }
   #log {
@@ -124,6 +130,19 @@
       <summary>Cookies (optionnel — requis pour les contenus nécessitant une connexion)</summary>
       <label for="cookies">Collez ici votre fichier cookies.txt (format Netscape) exporté depuis votre navigateur. Ils sont supprimés dès la fin du traitement.</label>
       <textarea id="cookies" rows="4" placeholder="# Netscape HTTP Cookie File…"></textarea>
+
+      <!-- Uniquement en application bureau : sur une instance web partagée,
+           conserver les cookies d'un visiteur les exposerait aux autres. -->
+      <div id="rememberblock" style="display:none">
+        <div class="checkbox">
+          <input type="checkbox" id="remembercookies">
+          <label for="remembercookies">Se souvenir de mes cookies sur cet ordinateur</label>
+        </div>
+        <p class="hint" id="rememberhint"></p>
+        <button type="button" id="forgetcookies" class="secondary" style="display:none">
+          Oublier les cookies enregistrés
+        </button>
+      </div>
     </details>
 
     <button type="submit" id="go">Télécharger &amp; convertir</button>
@@ -179,6 +198,52 @@ function syncPlatform() {
 }
 platformSel.addEventListener('change', syncPlatform);
 syncPlatform();
+
+// --- Mémorisation des cookies (application bureau uniquement) -------------
+// L'API n'existe que dans la fenêtre native. Dans un navigateur, rien de tout
+// ceci ne s'affiche : le serveur peut être partagé entre plusieurs personnes.
+const cookiesField = document.getElementById('cookies');
+const rememberBlock = document.getElementById('rememberblock');
+const rememberBox = document.getElementById('remembercookies');
+const rememberHint = document.getElementById('rememberhint');
+const forgetBtn = document.getElementById('forgetcookies');
+let cookieApi = null;
+
+function describeStore(st) {
+  const how = st.encrypted
+    ? 'chiffrés par Windows et liés à votre compte'
+    : 'accessibles à votre seul compte utilisateur';
+  return st.saved
+    ? `✔ Enregistrés sur cet ordinateur, ${how} : ${st.path}`
+    : `Une fois coché, vos cookies seront conservés (${how}) jusqu'à ce que vous les oubliiez. ` +
+      `Ce sont des identifiants de session : quiconque y accède accède à votre compte.`;
+}
+
+function applyStore(st) {
+  rememberHint.textContent = describeStore(st);
+  forgetBtn.style.display = st.saved ? 'inline-block' : 'none';
+}
+
+async function initCookieStore() {
+  const api = window.pywebview && window.pywebview.api;
+  if (!(api && api.cookies_status)) return;   // navigateur : on n'affiche rien
+  cookieApi = api;
+  rememberBlock.style.display = 'block';
+  const st = await api.cookies_status();
+  applyStore(st);
+  if (st.saved) {
+    cookiesField.value = await api.cookies_load();
+    rememberBox.checked = true;
+  }
+}
+
+window.addEventListener('pywebviewready', initCookieStore);
+
+forgetBtn.addEventListener('click', async () => {
+  applyStore(await cookieApi.cookies_forget());
+  cookiesField.value = '';
+  rememberBox.checked = false;
+});
 
 fetch('/api/config').then(r => r.json()).then(cfg => {
   authRequired = cfg.auth_required;
@@ -236,8 +301,15 @@ form.addEventListener('submit', async (e) => {
     quality: document.getElementById('quality').value,
     lossless: document.getElementById('lossless').checked,
     max_size: document.getElementById('maxsize').value || null,
-    cookies: document.getElementById('cookies').value,
+    cookies: cookiesField.value,
   };
+
+  // Décocher la case doit aussi effacer une sauvegarde antérieure.
+  if (cookieApi) {
+    applyStore(rememberBox.checked
+      ? await cookieApi.cookies_save(cookiesField.value)
+      : await cookieApi.cookies_forget());
+  }
 
   try {
     if (authRequired) localStorage.setItem('accessCode', codeInput.value);

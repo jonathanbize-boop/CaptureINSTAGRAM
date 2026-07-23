@@ -5,6 +5,15 @@
 # chargés dynamiquement (les extracteurs de gallery-dl sont importés par nom).
 # Il faut donc les collecter explicitement, sinon l'app gelée plantera au
 # runtime avec un ModuleNotFoundError sur l'extracteur Instagram.
+#
+# Mode « onedir » (dossier) et non « onefile » : un exécutable unique se
+# décompresse dans %TEMP% avant de s'exécuter, comportement que l'heuristique
+# de Windows Defender associe aux malwares (Trojan:Win32/Sabsik.TE.A!ml, un
+# faux positif classique des applications PyInstaller). Le mode dossier évite
+# cette auto-extraction. Il supprime aussi l'avertissement de dépréciation
+# PyInstaller sur les bundles macOS, incompatibles avec onefile.
+# Pour la même raison, UPX est désactivé : la compression de binaires est un
+# autre signal fort pour les antivirus.
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 datas = [("templates", "templates")]
@@ -30,11 +39,12 @@ a = Analysis(
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [],
+    pyz, a.scripts, [],
+    exclude_binaries=True,   # les binaires vont dans COLLECT (mode dossier)
     name="CaptureINSTAGRAM",
     debug=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,          # pas de fenêtre terminal
     disable_windowed_traceback=False,
     target_arch=None,
@@ -43,9 +53,17 @@ exe = EXE(
     # icon="assets/icon.ico",   # (Windows) fournir une icône .ico si dispo
 )
 
-# Sous macOS, produire un bundle .app :
+# Rassemble l'exécutable et ses dépendances dans dist/CaptureINSTAGRAM/.
+coll = COLLECT(
+    exe, a.binaries, a.datas,
+    strip=False,
+    upx=False,
+    name="CaptureINSTAGRAM",
+)
+
+# Sous macOS, produire un bundle .app à partir du dossier collecté :
 app = BUNDLE(
-    exe,
+    coll,
     name="CaptureINSTAGRAM.app",
     icon=None,               # "assets/icon.icns" si dispo
     bundle_identifier="com.jonathanbize.captureinstagram",

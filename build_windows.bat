@@ -5,4 +5,6 @@ python -m venv .venv
 call .venv\Scripts\activate
 pip install -r requirements-desktop.txt
 pyinstaller captureinstagram.spec --noconfirm
-echo Termine. Executable dans dist\CaptureINSTAGRAM\ (ou dist\CaptureINSTAGRAM.exe)
+echo Termine. Application dans dist\CaptureINSTAGRAM\
+echo Lancez CaptureINSTAGRAM.exe depuis ce dossier (il contient ses dependances).
+echo Pour distribuer, zippez le dossier entier.
