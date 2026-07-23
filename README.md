@@ -44,6 +44,25 @@ Cela réduit nettement les faux positifs sans les éliminer avec certitude. Si u
 
 Un détail utile au diagnostic : Defender est bien plus strict sur les fichiers **téléchargés depuis internet** que sur ceux construits localement. Un binaire qui passe sur votre machine peut être bloqué chez celui qui le télécharge.
 
+### ⚠️ Mark of the Web : l'app plante au démarrage après extraction
+
+Windows marque « provenant d'Internet » **chaque fichier** extrait d'une archive téléchargée. .NET refuse alors de charger `Python.Runtime.dll`, dont dépend la fenêtre native, et l'application s'arrête sur :
+
+```
+RuntimeError: Failed to resolve Python.Runtime.Loader.Initialize from
+…\_internal\pythonnet\runtime\Python.Runtime.dll
+```
+
+C'est la contrepartie du mode dossier : le mode fichier unique n'était pas concerné, puisqu'il se décompressait lui-même dans `%TEMP%`.
+
+Trois réponses, de la meilleure à la plus dépannage :
+
+1. **Avant d'extraire** : clic droit sur le ZIP → **Propriétés** → cocher **Débloquer** → OK. Le marquage ne se propage pas aux fichiers extraits. C'est la manœuvre à recommander à vos utilisateurs.
+2. **Après extraction** : lancer `Debloquer-et-lancer.bat`, fourni dans l'archive à côté de l'exécutable. Il retire le marquage puis démarre l'application. À faire une seule fois.
+3. **Si rien n'est fait** : l'application ne plante plus. Elle détecte l'échec de la fenêtre native, **ouvre l'interface dans le navigateur par défaut** et affiche un message expliquant comment rétablir la fenêtre. Toutes les fonctions restent disponibles, à l'exception de l'enregistrement du ZIP par boîte de dialogue native — le téléchargement passe alors par le navigateur.
+
+Note pour les tests : `Expand-Archive` (PowerShell) ne propage **pas** le marquage, contrairement à l'Explorateur Windows. Un test d'extraction en ligne de commande ne reproduit donc pas le problème.
+
 ### Distribution
 
 - **macOS** : Gatekeeper bloque une app non signée (« développeur non identifié »). Usage perso : clic droit → **Ouvrir**. Distribution propre : compte Apple Developer (99 $/an), `codesign` + notarisation `notarytool`, puis `.dmg`.
